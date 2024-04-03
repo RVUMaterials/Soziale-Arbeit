@@ -25,7 +25,7 @@ async def create_discord_threads(file_tree, channel, github_url):
     for item in file_tree['tree']:
         if item['type'] == 'tree':
             folder_name = item['path']
-            folder_thread = await channel.create_thread(name=folder_name, auto_archive_duration=60, type=discord.ChannelType.public)
+            folder_thread = await channel.create_thread(name=folder_name, auto_archive_duration=60, type=discord.ChannelType.public_thread)
             folder_content = ''
             for sub_item in file_tree['tree']:
                 if sub_item['type'] == 'blob' and sub_item['path'].startswith(folder_name):
@@ -37,6 +37,7 @@ async def create_discord_threads(file_tree, channel, github_url):
                     folder_content += f"- [{file_name}]({file_link})\n"
             if folder_content:
                 await folder_thread.send(folder_content)
+
 
 
 @client.event
