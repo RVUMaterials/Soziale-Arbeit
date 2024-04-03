@@ -1,0 +1,31 @@
+name: Create Discord Threads
+
+on:
+  push:
+    branches:
+      - main  # Trigger the workflow on pushes to the main branch
+  workflow_dispatch:  # Allow manual triggering of the workflow
+
+jobs:
+  create_threads:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2  # Checkout the repository so we can access its files
+      
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+      
+      - name: Install dependencies
+        run: pip install requests discord.py
+      
+      - name: Execute script
+        run: python create_discord_threads.py ${{ secrets.DISCORD_TOKEN }}
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}  # Access the repository name
+          GITHUB_EVENT_PATH: ${{ github.event_path }}  # Access event details
+          GITHUB_REF: ${{ github.ref }}  # Access the branch name
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}  # Pass Discord token as secret
