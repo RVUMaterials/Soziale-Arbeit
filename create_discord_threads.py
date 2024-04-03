@@ -3,6 +3,13 @@ import sys
 import requests
 import discord
 
+# Define Discord intents
+intents = discord.Intents.default()
+intents.messages = True  # Enable message events
+
+# Discord client
+client = discord.Client(intents=intents)
+
 # Function to fetch file tree from GitHub
 def get_github_file_tree(owner, repo, branch):
     url = f'https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1'
@@ -25,9 +32,6 @@ async def create_discord_threads(file_tree, channel):
                     folder_content += f"- {sub_item['path'].split('/')[-1]}\n"
             if folder_content:
                 await folder_thread.send(folder_content)
-
-# Discord client
-client = discord.Client()
 
 @client.event
 async def on_ready():
