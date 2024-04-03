@@ -25,18 +25,15 @@ async def create_discord_threads(file_tree, channel):
     for item in file_tree['tree']:
         if item['type'] == 'tree':
             folder_name = item['path']
-            folder_thread = await channel.create_thread(name=folder_name, auto_archive_duration=60)
+            folder_thread = await channel.create_thread(name=folder_name, auto_archive_duration=60, private=False)  # Make the thread public
             folder_content = ''
             for sub_item in file_tree['tree']:
                 if sub_item['type'] == 'blob' and sub_item['path'].startswith(folder_name):
-                    file_name = sub_item['path'].split('/')[-1]
-                    if len(folder_content) + len(file_name) + 3 > 2000:  # Check if adding the file exceeds the limit
-                        await folder_thread.send(folder_content)
-                        folder_content = ''
-                    folder_content += f"- {file_name}\n"
+                    file_name = sub_item['path'].split('/')[-1]  # Extract only the file name
+                    file_url = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/blob/{GITHUB_BRANCH}/{sub_item['path']}"
+                    folder_content += f"- [{file_name}]({file_url})\n"
             if folder_content:
                 await folder_thread.send(folder_content)
-
 
 @client.event
 async def on_ready():
