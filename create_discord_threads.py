@@ -29,9 +29,14 @@ async def create_discord_threads(file_tree, channel):
             folder_content = ''
             for sub_item in file_tree['tree']:
                 if sub_item['type'] == 'blob' and sub_item['path'].startswith(folder_name):
-                    folder_content += f"- {sub_item['path'].split('/')[-1]}\n"
+                    file_name = sub_item['path'].split('/')[-1]
+                    if len(folder_content) + len(file_name) + 3 > 2000:  # Check if adding the file exceeds the limit
+                        await folder_thread.send(folder_content)
+                        folder_content = ''
+                    folder_content += f"- {file_name}\n"
             if folder_content:
                 await folder_thread.send(folder_content)
+
 
 @client.event
 async def on_ready():
