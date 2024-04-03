@@ -49,6 +49,9 @@ async def on_ready():
     GITHUB_REPO = repo_details[1]
     GITHUB_BRANCH = os.getenv('GITHUB_REF').split('/')[-1]
 
+    # Construct GitHub URL
+    GITHUB_URL = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/blob/{GITHUB_BRANCH}"
+
     # Fetch file tree from GitHub
     file_tree = get_github_file_tree(GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH)
 
@@ -57,7 +60,7 @@ async def on_ready():
     channel = client.get_channel(channel_id)
 
     # Create Discord threads based on file tree
-    await create_discord_threads(file_tree, channel)
+    await create_discord_threads(file_tree, channel, GITHUB_URL)
 
 # Run the Discord bot
 client.run(sys.argv[1])
