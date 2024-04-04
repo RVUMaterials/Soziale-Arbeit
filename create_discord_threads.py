@@ -58,7 +58,7 @@ async def create_discord_structure(file_tree, guild, github_url):
         file_name = item['path'].split('/')[-1]
         encoded_file_path = urllib.parse.quote(item['path'])
         file_link = f"{github_url}/{encoded_file_path}"
-        message_content = f"- [{file_name}]({file_link})"
+        message_content = f"- [{file_name}](<{file_link}>)"
         await thread.send(message_content)
         logging.info(f'Posted file link in thread: {thread_name}')
 
