@@ -29,7 +29,7 @@ async def create_discord_channels_and_threads(file_tree, guild, github_url):
     else:
         logging.info('"archive" category already exists.')
 
-    archive_folders = [item for item in file_tree['tree'] if item['path'].startswith('archive/') and item['type'] == 'tree']
+    archive_folders = [item for item in file_tree['tree'] if item['path'].startswith('Archive/') and item['type'] == 'tree']
     if not archive_folders:
         logging.info('No folders found under "archive" in the GitHub repository.')
     else:
