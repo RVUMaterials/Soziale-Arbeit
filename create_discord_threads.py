@@ -1,18 +1,12 @@
+import discord
+import requests
 import os
 import sys
-import requests
-import discord
 import urllib.parse
 
-# Define Discord intents
 intents = discord.Intents.default()
-intents.messages = True
-intents.guilds = True
-
-# Discord client
 client = discord.Client(intents=intents)
 
-# Function to fetch file tree from GitHub
 def get_github_file_tree(owner, repo, branch):
     url = f'https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1'
     response = requests.get(url)
@@ -22,45 +16,57 @@ def get_github_file_tree(owner, repo, branch):
         print(f"Failed to fetch file tree from GitHub: {response.status_code}")
         return None
 
-# Helper function to ensure channels and threads creation
-async def ensure_channel_and_thread(guild, category_id, channel_name, thread_name):
-    channel = discord.utils.get(guild.channels, name=channel_name, category_id=category_id)
-    if not channel:
-        channel = await guild.create_text_channel(name=channel_name, category=discord.Object(id=category_id))
-    
-    thread = discord.utils.get(channel.threads, name=thread_name)
-    if not thread:
-        thread = await channel.create_thread(name=thread_name, auto_archive_duration=60)
-    
-    return thread
+async def create_discord_channels_and_threads(file_tree, guild, github_url):
+    archive_category = discord.utils.get(guild.categories, name="archive")
+    if not archive_category:
+        archive_category = await guild.create_category("archive")
 
-# Function to post file links in the thread
-async def post_file_links(file_tree, guild, category_id, github_url):
-    for item in file_tree['tree']:
-        if item['type'] == 'blob':  # If it's a file
-            path_elements = item['path'].split('/')
-            if path_elements[0] == "Archive" and len(path_elements) > 2:  # Ensure structure matches Archive/Semester X/Hausaufgaben
-                channel_name = path_elements[1]  # Semester X
-                thread_name = path_elements[2]  # Hausaufgaben
-                thread = await ensure_channel_and_thread(guild, category_id, channel_name, thread_name)
-                
-                file_name = path_elements[-1]
-                file_path = urllib.parse.quote('/'.join(path_elements))  # Encode the file path for URL
-                file_link = f"{github_url}/{file_path}"
-                await thread.send(f"- [{file_name}]({file_link})")
+    archive_folders = [item for item in file_tree['tree'] if item['path'].startswith('archive/') and item['type'] == 'tree']
+    for folder in archive_folders:
+        folder_name = folder['path'].split('/')[-1]
+        # Check if the channel already exists
+        channel = discord.utils.get(guild.text_channels, name=folder_name, category=archive_category)
+        if not channel:
+            # Create a channel under the "archive" category
+            channel = await guild.create_text_channel(folder_name, category=archive_category)
+        
+        folder_content = ''
+        for sub_item in file_tree['tree']:
+            if sub_item['type'] == 'blob' and sub_item['path'].startswith(folder['path']):
+                file_name = sub_item['path'].split('/')[-1]
+                encoded_file_path = urllib.parse.quote(sub_item['path'])  # URL encode the file path
+                file_link = f"{github_url}/{encoded_file_path}"
+                new_entry = f"- [{file_name}]({file_link})\n"
+                if len(folder_content + new_entry) > 2000:  # Check if adding the file exceeds the limit
+                    await channel.send(folder_content)
+                    folder_content = new_entry  # Start with the new entry that didn't fit
+                else:
+                    folder_content += new_entry
+        if folder_content:
+            await channel.send(folder_content)
 
 @client.event
 async def on_ready():
     print(f'Logged in as {client.user}')
-    GITHUB_OWNER = 'RWUMaterials'
-    GITHUB_REPO = 'Soziale-Arbeit'
-    GITHUB_BRANCH = 'main'  # Adjust if your branch name is different
-    ARCHIVE_CATEGORY_ID = 1225256226699477073  # The Discord category ID for ARCHIVE
-    GITHUB_URL = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/blob/{GITHUB_BRANCH}"
-    
-    guild = client.guilds[0]  # Assumes the bot is in one guild, adjust as needed
-    file_tree = get_github_file_tree(GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH)
-    
-    await post_file_links(file_tree, guild, ARCHIVE_CATEGORY_ID, GITHUB_URL)
 
-client.run(sys.argv[1])  # Your bot's token as the first command-line argument
+    # Fetch repository details
+    repo_details = os.getenv('GITHUB_REPOSITORY').split('/')
+    GITHUB_OWNER = repo_details[0]
+    GITHUB_REPO = repo_details[1]
+    GITHUB_BRANCH = os.getenv('GITHUB_REF').split('/')[-1]
+
+    # Construct GitHub URL
+    GITHUB_URL = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/blob/{GITHUB_BRANCH}"
+
+    # Fetch file tree from GitHub
+    file_tree = get_github_file_tree(GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH)
+
+    # Find the guild by ID or name
+    guild_id = 1224348075858853918  # Replace with your Discord server (guild) ID
+    guild = client.get_guild(guild_id)
+
+    # Create Discord channels and threads based on file tree
+    await create_discord_channels_and_threads(file_tree, guild, GITHUB_URL)
+
+# Run the Discord bot
+client.run(sys.argv[1])
