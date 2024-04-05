@@ -44,15 +44,27 @@ def parse_tree_for_channels(file_tree):
     logging.info(f"Channels structure parsed with {len(channels_structure)} top-level directories.")
     return channels_structure
 
-
-def build_markdown_structure(files, github_url):
+def build_markdown_structure(channel_content, github_url):
     markdown = ""
-    for file_path in files:
+    # Handle files directly under the top-level directory
+    for file_path in channel_content['files']:
         file_name = file_path.split('/')[-1]
         encoded_path = urllib.parse.quote(file_path)
         file_link = f"{github_url}/{encoded_path}"
         markdown += f"* [{file_name}](<{file_link}>)\n"
+
+    # Handle subdirectories and their files
+    for subdir, files in channel_content['subdirs'].items():
+        # Add subdirectory as a bolded item
+        markdown += f"  * **{subdir}**\n"
+        for file_name in files:
+            # Construct the GitHub URL for each file
+            encoded_file_path = urllib.parse.quote(f"archive/{subdir}/{file_name}")
+            file_link = f"{github_url}/{encoded_file_path}"
+            markdown += f"    * [{file_name}](<{file_link}>)\n"
+    
     return markdown
+
 
 async def create_discord_structure(file_tree, guild, github_url):
     archive_category = discord.utils.get(guild.categories, name="archive")
