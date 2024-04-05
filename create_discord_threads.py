@@ -46,30 +46,29 @@ def parse_tree_for_channels(file_tree):
 
 def build_markdown_structure(channel_content, github_url):
     markdown = ""
-    # Iterate through files directly under the top-level directory
+    # Handle files directly under the top-level directory
     for file_path in channel_content['files']:
+        # Extract the file name and construct the full GitHub URL
         file_name = file_path.split('/')[-1]
-        # Ensure the path starts with "Archive/" with the correct casing
-        adjusted_path = "Archive/" + "/".join(file_path.split('/')[1:])
+        # Note: The path needs to be adjusted if it doesn't accurately represent the full directory structure
+        adjusted_path = "Archive/" + "/".join(file_path.split('/')[2:])  # Adjusting path indexing as needed
         encoded_path = urllib.parse.quote(adjusted_path)
         file_link = f"{github_url}/{encoded_path}"
         markdown += f"* [{file_name}](<{file_link}>)\n"
 
-    # Iterate through subdirectories and their files
+    # Handle subdirectories and their files
     for subdir, files in channel_content['subdirs'].items():
-        # Format the subdirectory name for display (if necessary)
+        # Subdirectory formatting for display
         formatted_subdir = " / ".join(subdir.split('/'))
         markdown += f"  * **{formatted_subdir}**\n"
         for file_name in files:
-            # Construct the GitHub URL for each file, including full path
-            adjusted_subdir_path = "Archive/" + "/".join(subdir.split('/') + [file_name])
-            encoded_file_path = urllib.parse.quote(adjusted_subdir_path)
+            # For each file in a subdirectory, construct the full path correctly
+            full_path = "/".join(['Archive'] + [subdir] + [file_name])
+            encoded_file_path = urllib.parse.quote(full_path)
             file_link = f"{github_url}/{encoded_file_path}"
             markdown += f"    * [{file_name}](<{file_link}>)\n"
     
     return markdown
-
-
 
 
 async def create_discord_structure(file_tree, guild, github_url):
