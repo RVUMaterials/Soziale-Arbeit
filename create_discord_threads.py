@@ -46,29 +46,29 @@ def parse_tree_for_channels(file_tree):
 
 def build_markdown_structure(channel_content, github_url):
     markdown = ""
-    # Handle files directly under the top-level directory
+    # Iterate through files directly under the top-level directory
     for file_path in channel_content['files']:
         file_name = file_path.split('/')[-1]
-        # Adjust the path for the GitHub URL, ensuring it starts with "Archive/"
-        adjusted_path = file_path.replace('archive/', 'Archive/', 1)
+        # Ensure the path starts with "Archive/" with the correct casing
+        adjusted_path = "Archive/" + "/".join(file_path.split('/')[1:])
         encoded_path = urllib.parse.quote(adjusted_path)
         file_link = f"{github_url}/{encoded_path}"
         markdown += f"* [{file_name}](<{file_link}>)\n"
 
-    # Handle subdirectories and their files
+    # Iterate through subdirectories and their files
     for subdir, files in channel_content['subdirs'].items():
-        # Format the subdirectory name for display
-        formatted_subdir = subdir.replace('_', ' ')
+        # Format the subdirectory name for display (if necessary)
+        formatted_subdir = " / ".join(subdir.split('/'))
         markdown += f"  * **{formatted_subdir}**\n"
         for file_name in files:
-            # Construct the GitHub URL for each file within subdirectories
-            # Ensure the path is correctly adjusted to start with "Archive/"
-            adjusted_subdir_path = f"archive/{subdir}/{file_name}".replace('archive/', 'Archive/', 1)
+            # Construct the GitHub URL for each file, including full path
+            adjusted_subdir_path = "Archive/" + "/".join(subdir.split('/') + [file_name])
             encoded_file_path = urllib.parse.quote(adjusted_subdir_path)
             file_link = f"{github_url}/{encoded_file_path}"
             markdown += f"    * [{file_name}](<{file_link}>)\n"
     
     return markdown
+
 
 
 
