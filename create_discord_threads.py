@@ -70,7 +70,6 @@ async def create_discord_structure(file_tree, guild, github_url):
         markdown_message += "```"
         await folder_channel.send(markdown_message)
 
-
 @client.event
 async def on_ready():
     logging.info(f'Logged in as {client.user}')
