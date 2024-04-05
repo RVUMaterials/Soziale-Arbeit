@@ -64,11 +64,16 @@ async def create_discord_structure(file_tree, guild, github_url):
             markdown_message += "```"
             await folder_channel.send(markdown_message)
             markdown_message = "```\n"
+        else:
+            # Send the message if it's not going to exceed the character limit
+            await folder_channel.send(markdown_message)
+            markdown_message = "```\n"
 
     # Send remaining markdown message if any
     if len(markdown_message) > 4:  # Check if there's any content other than "```"
         markdown_message += "```"
         await folder_channel.send(markdown_message)
+
 
 @client.event
 async def on_ready():
