@@ -39,10 +39,13 @@ def parse_tree_for_channels(file_tree):
     return channels_structure
 
 def get_github_file_link(file_path, github_url):
-    adjusted_path = "Archive/" + "/".join(file_path.split('/')[1:])
+    # The initial 'archive/' part is replaced with 'Archive/' to match the case of the GitHub repository structure
+    # Then, the entire path after 'archive/' is included, ensuring subdirectory names are preserved
+    adjusted_path = file_path.replace('archive/', 'Archive/', 1)
     encoded_path = urllib.parse.quote(adjusted_path)
     full_link = f"{github_url}/{encoded_path}"
     return full_link
+
 
 def build_markdown_structure(channel_content, github_url):
     markdown = ""
