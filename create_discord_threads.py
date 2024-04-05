@@ -3,6 +3,7 @@ import requests
 import os
 import urllib.parse
 import logging
+from collections import defaultdict
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
@@ -20,60 +21,60 @@ def get_github_file_tree(owner, repo, branch):
         logging.error(f"Failed to fetch file tree from GitHub: {response.status_code}")
         return None
 
-async def create_discord_structure(file_tree, guild, github_url, category_name="Archive", parent_channel=None, indentation=0):
-    # Check if "Archive" category exists, if not create it
-    archive_category = discord.utils.get(guild.categories, name=category_name)
+def build_markdown_structure(files):
+    def insert_path(structure, path, link):
+        parts = path.split('/')
+        for part in parts[:-1]:
+            structure = structure.setdefault(part, {})
+        structure[parts[-1]] = link
+
+    def generate_markdown(structure, depth=0):
+        markdown = ""
+        indent = "  " * depth
+        for key, value in structure.items():
+            if isinstance(value, dict):
+                markdown += f"\n{indent}* **{key}**"
+                markdown += generate_markdown(value, depth + 1)
+            else:
+                markdown += f"\n{indent}* [{key}]({value})"
+        return markdown
+
+    structure = {}
+    for file in files:
+        path = file['path']
+        if path.lower().startswith('archive/'):
+            file_name = path.split('/')[-1]
+            encoded_path = urllib.parse.quote(path)
+            file_link = f"{github_url}/{encoded_path}"
+            insert_path(structure, path[len('archive/'):], file_link)
+
+    return generate_markdown(structure)
+
+async def create_discord_structure(file_tree, guild, github_url):
+    archive_category = discord.utils.get(guild.categories, name="archive")
     if not archive_category:
-        archive_category = await guild.create_category(category_name)
-        logging.info(f'Created "{category_name}" category.')
-    
-    # Process only items within the "Archive" directory
-    for item in file_tree['tree']:
-        path_segments = item['path'].split('/')
-        if len(path_segments) < 2 or item['type'] != 'blob' or path_segments[0].lower() != 'archive':  # Skip non-archive items
-            continue
-        
-        folder_name = path_segments[1]
-        if folder_name.startswith('.'):  # Skip hidden folders
-            continue
-        
-        # Create channel for the folder
-        folder_channel = discord.utils.get(guild.text_channels, name=folder_name, category=archive_category)
-        if not folder_channel:
-            folder_channel = await guild.create_text_channel(folder_name, category=archive_category)
-            logging.info(f'Created channel: {folder_name}')
-        
-        # Construct markdown message for folder structure
-        markdown_message = "```markdown\n"
-        markdown_message += f"{indentation * '  '}- **{folder_name}**\n"
-        
-        # Process subfolders recursively
-        subfolder_items = [subitem for subitem in file_tree['tree'] if subitem['path'].startswith(f'archive/{folder_name}/')]
-        if subfolder_items:
-            subfolder_structure = await create_discord_structure(
-                {'tree': subfolder_items}, guild, github_url, category_name=None, 
-                parent_channel=folder_channel, indentation=indentation + 1
-            )
-            markdown_message += subfolder_structure
-        
-        # Process files in the folder
-        files_in_folder = [file_item for file_item in file_tree['tree'] if file_item['path'].startswith(f'archive/{folder_name}/') and file_item['type'] == 'blob']
-        for file_item in files_in_folder:
-            file_name = file_item['path'].split('/')[-1]
-            encoded_file_path = urllib.parse.quote(file_item['path'])
-            file_link = f"{github_url}/{encoded_file_path}"
-            markdown_message += f"{(indentation + 1) * '  '}- [{file_name}]({file_link})\n"
-        
-        markdown_message += "```"
-        
-        # Send markdown message to channel
-        if parent_channel:
-            await parent_channel.send(markdown_message)
+        archive_category = await guild.create_category("archive")
+        logging.info('Created "archive" category.')
+    else:
+        logging.info('"archive" category already exists.')
+
+    archive_items = [item for item in file_tree['tree'] if item['path'].lower().startswith('archive/')]
+
+    markdown_message = build_markdown_structure(archive_items)
+
+    # Split markdown_message by top-level folders to send separate messages for each
+    folder_messages = markdown_message.strip().split("\n\n* **")
+    for message in folder_messages:
+        if message.startswith("* **"):
+            channel_name = message.split("\n", 1)[0][4:-2]  # Extract channel name
         else:
-            await folder_channel.send(markdown_message)
-    
-    # Return the markdown message for subfolders
-    return markdown_message
+            channel_name, message = message.split("\n", 1)
+            message = "* **" + message
+        channel = discord.utils.get(guild.text_channels, name=channel_name, category=archive_category)
+        if not channel:
+            channel = await guild.create_text_channel(channel_name, category=archive_category)
+            logging.info(f'Created channel: {channel_name}')
+        await channel.send(message)
 
 @client.event
 async def on_ready():
