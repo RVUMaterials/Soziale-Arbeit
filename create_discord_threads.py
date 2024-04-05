@@ -59,7 +59,7 @@ def build_markdown_structure(files, github_url):
     return generate_markdown(structure)
 
 
-async def create_discord_structure(file_tree, guild, github_url):  # Accepts github_url
+async def create_discord_structure(file_tree, guild, github_url):
     archive_category = discord.utils.get(guild.categories, name="archive")
     if not archive_category:
         archive_category = await guild.create_category("archive")
@@ -69,7 +69,7 @@ async def create_discord_structure(file_tree, guild, github_url):  # Accepts git
 
     archive_items = [item for item in file_tree['tree'] if item['path'].lower().startswith('archive/')]
 
-    markdown_message = build_markdown_structure(archive_items, github_url)  # Passes github_url
+    markdown_message = build_markdown_structure(archive_items, github_url)
 
     # Split markdown_message by top-level folders to send separate messages for each
     folder_messages = markdown_message.strip().split("\n\n* **")
@@ -83,7 +83,21 @@ async def create_discord_structure(file_tree, guild, github_url):  # Accepts git
         if not channel:
             channel = await guild.create_text_channel(channel_name, category=archive_category)
             logging.info(f'Created channel: {channel_name}')
-        await channel.send(message)
+
+        # Ensure each message part does not exceed Discord's limit
+        max_length = 4000
+        while len(message) > max_length:
+            # Find the last newline before the limit
+            split_index = message.rfind('\n', 0, max_length)
+            if split_index == -1:
+                split_index = max_length  # Fallback in case there's a very long line
+            message_part = message[:split_index].strip()
+            await channel.send(message_part)
+            message = message[split_index:].strip()
+
+        # Send the remaining part of the message
+        if message:
+            await channel.send(message)
 
 @client.event
 async def on_ready():
