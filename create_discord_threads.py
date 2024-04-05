@@ -49,21 +49,27 @@ def build_markdown_structure(channel_content, github_url):
     # Handle files directly under the top-level directory
     for file_path in channel_content['files']:
         file_name = file_path.split('/')[-1]
-        encoded_path = urllib.parse.quote(file_path)
+        # Adjust the path for the GitHub URL, ensuring it starts with "Archive/"
+        adjusted_path = file_path.replace('archive/', 'Archive/', 1)
+        encoded_path = urllib.parse.quote(adjusted_path)
         file_link = f"{github_url}/{encoded_path}"
         markdown += f"* [{file_name}](<{file_link}>)\n"
 
     # Handle subdirectories and their files
     for subdir, files in channel_content['subdirs'].items():
-        # Add subdirectory as a bolded item
-        markdown += f"  * **{subdir}**\n"
+        # Format the subdirectory name for display
+        formatted_subdir = subdir.replace('_', ' ')
+        markdown += f"  * **{formatted_subdir}**\n"
         for file_name in files:
-            # Construct the GitHub URL for each file
-            encoded_file_path = urllib.parse.quote(f"archive/{subdir}/{file_name}")
+            # Construct the GitHub URL for each file within subdirectories
+            # Ensure the path is correctly adjusted to start with "Archive/"
+            adjusted_subdir_path = f"archive/{subdir}/{file_name}".replace('archive/', 'Archive/', 1)
+            encoded_file_path = urllib.parse.quote(adjusted_subdir_path)
             file_link = f"{github_url}/{encoded_file_path}"
             markdown += f"    * [{file_name}](<{file_link}>)\n"
     
     return markdown
+
 
 
 async def create_discord_structure(file_tree, guild, github_url):
