@@ -39,7 +39,8 @@ def parse_tree_for_channels(file_tree):
     return channels_structure
 
 def get_github_file_link(file_path, github_url):
-    # Correctly assemble the path including the 'Archive/' prefix and any subdirectories
+    # Replace 'archive/' with 'Archive/' to match GitHub's case sensitivity
+    # Use urllib.parse.quote to encode the URL correctly
     adjusted_path = file_path.replace('archive/', 'Archive/', 1)
     encoded_path = urllib.parse.quote(adjusted_path)
     full_link = f"{github_url}/{encoded_path}"
@@ -47,18 +48,23 @@ def get_github_file_link(file_path, github_url):
 
 def build_markdown_structure(channel_content, github_url):
     markdown = ""
+    # Files directly under the top-level directory
     for file_path in channel_content['files']:
         file_name = file_path.split('/')[-1]
         file_link = get_github_file_link(file_path, github_url)
-        markdown += f"* [{file_name}]({file_link})\n"
+        # Ensure links are not embedded
+        markdown += f"* [{file_name}](<{file_link}>)\n"
+
+    # Subdirectories and their files
     for subdir_path, files in channel_content['subdirs'].items():
-        # Extract just the last part of the subdir path for display
-        subdir_display_name = subdir_path.split('/')[-1].replace('_', ' ')
+        # For displaying, only use the last segment of the subdir path
+        subdir_display_name = subdir_path.split('/')[-1]
         markdown += f"  * **{subdir_display_name}**\n"
         for file_name in files:
-            full_file_path = f"{subdir_path}/{file_name}"  # subdir_path already includes the top-level dir
+            # Construct the full file path including the top-level dir and subdir
+            full_file_path = '/'.join(['archive', subdir_path, file_name])
             file_link = get_github_file_link(full_file_path, github_url)
-            markdown += f"    * [{file_name}]({file_link})\n"
+            markdown += f"    * [{file_name}](<{file_link}>)\n"
     return markdown
 
 async def send_large_message(channel, message):
