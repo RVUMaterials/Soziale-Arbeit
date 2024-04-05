@@ -85,7 +85,7 @@ async def create_discord_structure(file_tree, guild, github_url):
             logging.info(f'Created channel: {channel_name}')
 
         # Ensure each message part does not exceed Discord's limit
-        max_length = 4000
+        max_length = 2000
         while len(message) > max_length:
             # Find the last newline before the limit
             split_index = message.rfind('\n', 0, max_length)
