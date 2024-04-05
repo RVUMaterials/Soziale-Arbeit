@@ -44,17 +44,33 @@ def parse_tree_for_channels(file_tree):
     logging.info(f"Channels structure parsed with {len(channels_structure)} top-level directories.")
     return channels_structure
 
-def build_markdown_structure(channel_content, github_url):
+def build_markdown_structure(channel_name, channel_content, github_url):
     markdown = ""
+    # Correctly include the channel name (top-level directory name) in the file path
+    base_path = f"Archive/{channel_name}"
+
     # Handle files directly under the top-level directory
     for file_path in channel_content['files']:
-        # Extract the file name and construct the full GitHub URL
         file_name = file_path.split('/')[-1]
-        # Note: The path needs to be adjusted if it doesn't accurately represent the full directory structure
-        adjusted_path = "Archive/" + "/".join(file_path.split('/')[2:])  # Adjusting path indexing as needed
+        # Construct the full GitHub URL, now including the channel name
+        adjusted_path = f"{base_path}/{file_name}"
         encoded_path = urllib.parse.quote(adjusted_path)
         file_link = f"{github_url}/{encoded_path}"
         markdown += f"* [{file_name}](<{file_link}>)\n"
+
+    # Handle subdirectories and their files
+    for subdir, files in channel_content['subdirs'].items():
+        formatted_subdir = subdir.replace('_', ' ')
+        markdown += f"  * **{formatted_subdir}**\n"
+        for file_name in files:
+            # Construct the GitHub URL for each file within subdirectories, including the channel name
+            adjusted_subdir_path = f"{base_path}/{subdir}/{file_name}"
+            encoded_file_path = urllib.parse.quote(adjusted_subdir_path)
+            file_link = f"{github_url}/{encoded_file_path}"
+            markdown += f"    * [{file_name}](<{file_link}>)\n"
+
+    return markdown
+
 
     # Handle subdirectories and their files
     for subdir, files in channel_content['subdirs'].items():
