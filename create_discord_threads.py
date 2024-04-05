@@ -38,24 +38,43 @@ def parse_tree_for_channels(file_tree):
     logging.info(f"Channels structure parsed with {len(channels_structure)} top-level directories.")
     return channels_structure
 
+def get_github_file_link(file_path, github_url):
+    # Ensure the path starts with "Archive/" and includes the complete directory structure
+    adjusted_path = "Archive/" + "/".join(file_path.split('/')[1:])
+    encoded_path = urllib.parse.quote(adjusted_path)
+    full_link = f"{github_url}/{encoded_path}"
+    return full_link
+
+
 def build_markdown_structure(channel_content, github_url):
     markdown = ""
+    # Files directly under the top-level directory
     for file_path in channel_content['files']:
         file_name = file_path.split('/')[-1]
-        adjusted_path = "Archive/" + "/".join(file_path.split('/')[1:])
-        encoded_path = urllib.parse.quote(adjusted_path)
-        file_link = f"{github_url}/{encoded_path}"
-        markdown += f"* [{file_name}](<{file_link}>)\n"
+        file_link = get_github_file_link(file_path, github_url)
+        markdown += f"* [{file_name}]({file_link})\n"
+
+    # Subdirectories and their files
     for subdir, files in channel_content['subdirs'].items():
-        subdir_display_name = subdir.replace('_', ' ')
+        subdir_display_name = " / ".join(subdir.split('/'))
         markdown += f"  * **{subdir_display_name}**\n"
         for file_name in files:
-            full_file_path = f"Archive/{subdir}/{file_name}"
-            adjusted_subdir_path = "/".join(full_file_path.split('/')[1:])
-            encoded_file_path = urllib.parse.quote(adjusted_subdir_path)
-            file_link = f"{github_url}/{encoded_file_path}"
-            markdown += f"    * [{file_name}](<{file_link}>)\n"
+            full_file_path = f"{subdir}/{file_name}"
+            file_link = get_github_file_link(full_file_path, github_url)
+            markdown += f"    * [{file_name}]({file_link})\n"
+    
     return markdown
+
+async def send_large_message(channel, message):
+    max_length = 2000  # Discord's max message length
+    while message:
+        # Find a safe break point, prioritizing line breaks
+        split_point = message.rfind('\n', 0, max_length) + 1
+        if split_point == 0:  # No line break found, default to max length
+            split_point = max_length
+        part, message = message[:split_point], message[split_point:]
+        await channel.send(part)
+
 
 async def create_discord_structure(file_tree, guild, github_url):
     archive_category = discord.utils.get(guild.categories, name="archive")
@@ -66,14 +85,10 @@ async def create_discord_structure(file_tree, guild, github_url):
         logging.info('"archive" category already exists.')
     channels_structure = parse_tree_for_channels([item for item in file_tree['tree'] if item['path'].lower().startswith('archive/')])
     for channel_name, content in channels_structure.items():
-        channel = discord.utils.get(guild.text_channels, name=channel_name, category=archive_category)
-        if not channel:
-            channel = await guild.create_text_channel(channel_name, category=archive_category)
-            logging.info(f'Created channel: {channel_name}')
-        else:
-            logging.info(f'Channel "{channel_name}" already exists.')
+        # Channel lookup or creation...
         markdown_message = build_markdown_structure(content, github_url)
-        logging.info(f'Sending markdown message for "{channel_name}" with length {len(markdown_message)}.')
+        logging.info(f'Sending markdown message for "{channel_name}"...')
+        await send_large_message(channel, markdown_message)
         # Send markdown message in parts if it's too long
         if len(markdown_message) > 2000:
             parts = [markdown_message[i:i+2000] for i in range(0, len(markdown_message), 2000)]
