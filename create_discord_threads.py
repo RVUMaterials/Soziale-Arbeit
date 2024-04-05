@@ -28,13 +28,10 @@ async def create_discord_structure(file_tree, guild, github_url):
     else:
         logging.info('"archive" category already exists.')
 
-    # Process only items within the "Archive" directory
-    archive_items = [item for item in file_tree['tree'] if item['path'].lower().startswith('archive/')]
-
     # Create channels and markdown message
     processed_folders = {}  # Cache of processed folders to avoid duplication
-    markdown_message = "```\n"
-    for item in archive_items:
+    markdown_message = ""
+    for item in file_tree['tree']:
         path_segments = item['path'].split('/')
         if len(path_segments) < 3 or item['type'] != 'blob':  # Skip top-level or non-file items
             continue
@@ -46,32 +43,29 @@ async def create_discord_structure(file_tree, guild, github_url):
                 folder_channel = await guild.create_text_channel(folder_name, category=archive_category)
                 logging.info(f'Created channel: {folder_name}')
             processed_folders[folder_name] = folder_channel
-            markdown_message += f"# {folder_name}\n\n"
+            markdown_message += f"- **{folder_name}**\n"
         else:
             folder_channel = processed_folders[folder_name]
 
         # Append file link or markdown message
-        if folder_name == path_segments[1]:  # If the file is directly inside the folder
+        if len(path_segments) == 3:  # File directly inside the folder
             encoded_file_path = urllib.parse.quote(item['path'])
             file_link = f"{github_url}/{encoded_file_path}"
-            markdown_message += f"- [{file_name}]({file_link})\n"
-        else:
-            # File is inside subfolders
-            markdown_message += f"  - {path_segments[-1]}\n"
+            markdown_message += f"  - [{file_name}](#{file_name.lower().replace(' ', '-')})\n"
+            markdown_message += f"    - [Link]({file_link})\n"
+        else:  # Subfolders
+            subfolder_name = path_segments[2]
+            markdown_message += f"  - **{subfolder_name}**\n"
 
-        # Check if message exceeds 2000 characters
-        if len(markdown_message) > 2000:
-            markdown_message += "```"
-            await folder_channel.send(markdown_message)
-            markdown_message = "```\n"
-        else:
-            # Send the message if it's not going to exceed the character limit
-            await folder_channel.send(markdown_message)
-            markdown_message = "```\n"
+            if len(path_segments) > 3:  # Nested subfolders
+                subfolder_path = ' '.join(path_segments[3:])
+                markdown_message += f"    - [{subfolder_path}](#)\n"
+            else:  # Subfolder with only links
+                markdown_message += f"    - [Google](https://google.com)\n"
+                markdown_message += f"    - [GitHub](https://github.com)\n"
 
-    # Send remaining markdown message if any
-    if len(markdown_message) > 4:  # Check if there's any content other than "```"
-        markdown_message += "```"
+    # Send markdown message
+    for folder_name, folder_channel in processed_folders.items():
         await folder_channel.send(markdown_message)
 
 
