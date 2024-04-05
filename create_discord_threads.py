@@ -23,15 +23,14 @@ def get_github_file_tree(owner, repo, branch):
 def parse_tree_for_channels(file_tree):
     channels_structure = {}
     for item in file_tree:
-        # Only consider files for now, directories will be represented in markdown
         if item['path'].startswith('archive/') and item['type'] == 'blob':
             path_parts = item['path'].split('/')
-            # Ignore top-level files directly under archive/
             if len(path_parts) > 2:
                 top_level_dir = path_parts[1]
                 if top_level_dir not in channels_structure:
                     channels_structure[top_level_dir] = []
                 channels_structure[top_level_dir].append(item['path'])
+    logging.info(f"Channels structure parsed with {len(channels_structure.keys())} top-level directories.")
     return channels_structure
 
 def build_markdown_structure(files, github_url):
@@ -58,10 +57,12 @@ async def create_discord_structure(file_tree, guild, github_url):
         if not channel:
             channel = await guild.create_text_channel(channel_name, category=archive_category)
             logging.info(f'Created channel: {channel_name}')
+        else:
+            logging.info(f'Channel "{channel_name}" already exists.')
         
         markdown_message = build_markdown_structure(files, github_url)
+        logging.info(f'Sending markdown message for "{channel_name}" with length {len(markdown_message)}.')
         if len(markdown_message) > 2000:
-            # Split message if over Discord limit
             while len(markdown_message) > 0:
                 part = markdown_message[:2000]
                 newline_pos = part.rfind('\n')
@@ -69,8 +70,10 @@ async def create_discord_structure(file_tree, guild, github_url):
                     part = part[:newline_pos]
                 await channel.send(part)
                 markdown_message = markdown_message[len(part):]
+                logging.info(f'Sent part of markdown message for "{channel_name}".')
         else:
             await channel.send(markdown_message)
+            logging.info(f'Complete markdown message sent for "{channel_name}".')
 
 @client.event
 async def on_ready():
