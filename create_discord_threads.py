@@ -3,7 +3,6 @@ import requests
 import os
 import urllib.parse
 import logging
-from collections import defaultdict
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +20,7 @@ def get_github_file_tree(owner, repo, branch):
         logging.error(f"Failed to fetch file tree from GitHub: {response.status_code}")
         return None
 
-def build_markdown_structure(files):
+def build_markdown_structure(files, github_url):  # Now accepts github_url
     def insert_path(structure, path, link):
         parts = path.split('/')
         for part in parts[:-1]:
@@ -45,12 +44,12 @@ def build_markdown_structure(files):
         if path.lower().startswith('archive/'):
             file_name = path.split('/')[-1]
             encoded_path = urllib.parse.quote(path)
-            file_link = f"{github_url}/{encoded_path}"
+            file_link = f"{github_url}/{encoded_path}"  # Uses github_url correctly
             insert_path(structure, path[len('archive/'):], file_link)
 
     return generate_markdown(structure)
 
-async def create_discord_structure(file_tree, guild, github_url):
+async def create_discord_structure(file_tree, guild, github_url):  # Accepts github_url
     archive_category = discord.utils.get(guild.categories, name="archive")
     if not archive_category:
         archive_category = await guild.create_category("archive")
@@ -60,7 +59,7 @@ async def create_discord_structure(file_tree, guild, github_url):
 
     archive_items = [item for item in file_tree['tree'] if item['path'].lower().startswith('archive/')]
 
-    markdown_message = build_markdown_structure(archive_items)
+    markdown_message = build_markdown_structure(archive_items, github_url)  # Passes github_url
 
     # Split markdown_message by top-level folders to send separate messages for each
     folder_messages = markdown_message.strip().split("\n\n* **")
@@ -103,5 +102,3 @@ if DISCORD_TOKEN:
     client.run(DISCORD_TOKEN)
 else:
     logging.error('Discord token not found. Please ensure DISCORD_TOKEN is set in your environment variables.')
-
-
