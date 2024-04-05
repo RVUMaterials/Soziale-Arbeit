@@ -31,36 +31,45 @@ async def create_discord_structure(file_tree, guild, github_url):
     # Process only items within the "Archive" directory
     archive_items = [item for item in file_tree['tree'] if item['path'].lower().startswith('archive/')]
 
-    # Create channels and threads
-    processed_channels = {}  # Cache of created channels to avoid duplication
+    # Create channels and markdown message
+    processed_folders = {}  # Cache of processed folders to avoid duplication
+    markdown_message = "```\n"
     for item in archive_items:
         path_segments = item['path'].split('/')
         if len(path_segments) < 3 or item['type'] != 'blob':  # Skip top-level or non-file items
             continue
 
-        channel_name, thread_name = path_segments[1], path_segments[2]
-        if channel_name not in processed_channels:
-            channel = discord.utils.get(guild.text_channels, name=channel_name, category=archive_category)
-            if not channel:
-                channel = await guild.create_text_channel(channel_name, category=archive_category)
-                logging.info(f'Created channel: {channel_name}')
-            processed_channels[channel_name] = channel
+        folder_name, file_name = path_segments[1], path_segments[2]
+        if folder_name not in processed_folders:
+            folder_channel = discord.utils.get(guild.text_channels, name=folder_name, category=archive_category)
+            if not folder_channel:
+                folder_channel = await guild.create_text_channel(folder_name, category=archive_category)
+                logging.info(f'Created channel: {folder_name}')
+            processed_folders[folder_name] = folder_channel
+            markdown_message += f"# {folder_name}\n\n"
         else:
-            channel = processed_channels[channel_name]
+            folder_channel = processed_folders[folder_name]
 
-        # Create or get thread
-        thread = discord.utils.get(channel.threads, name=thread_name)
-        if not thread:
-            thread = await channel.create_thread(name=thread_name, type=discord.ChannelType.public_thread)
-            logging.info(f'Created thread: {thread_name} in channel: {channel_name}')
+        # Append file link or markdown message
+        if folder_name == path_segments[1]:  # If the file is directly inside the folder
+            encoded_file_path = urllib.parse.quote(item['path'])
+            file_link = f"{github_url}/{encoded_file_path}"
+            markdown_message += f"- [{file_name}]({file_link})\n"
+        else:
+            # File is inside subfolders
+            markdown_message += f"  - {path_segments[-1]}\n"
 
-        # Post file link in the thread
-        file_name = item['path'].split('/')[-1]
-        encoded_file_path = urllib.parse.quote(item['path'])
-        file_link = f"{github_url}/{encoded_file_path}"
-        message_content = f"- [{file_name}](<{file_link}>)"
-        await thread.send(message_content)
-        logging.info(f'Posted file link in thread: {thread_name}')
+        # Check if message exceeds 2000 characters
+        if len(markdown_message) > 2000:
+            markdown_message += "```"
+            await folder_channel.send(markdown_message)
+            markdown_message = "```\n"
+
+    # Send remaining markdown message if any
+    if len(markdown_message) > 4:  # Check if there's any content other than "```"
+        markdown_message += "```"
+        await folder_channel.send(markdown_message)
+
 
 @client.event
 async def on_ready():
