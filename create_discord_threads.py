@@ -106,7 +106,7 @@ async def create_discord_structure(file_tree, guild, github_url):
         else:
             logging.info(f'Channel "{channel_name}" already exists.')
         
-        markdown_message = build_markdown_structure(files, github_url)
+        markdown_message = build_markdown_structure(channel_content, github_url)
         logging.info(f'Sending markdown message for "{channel_name}" with length {len(markdown_message)}.')
         if len(markdown_message) > 2000:
             while len(markdown_message) > 0:
