@@ -20,17 +20,26 @@ def get_github_file_tree(owner, repo, branch):
         logging.error(f"Failed to fetch file tree from GitHub: {response.status_code}")
         return None
 
-def build_markdown_structure(files, github_url):  # Now accepts github_url
+def build_markdown_structure(files, github_url):
     def insert_path(structure, path, link):
         parts = path.split('/')
+        current_level = structure
         for part in parts[:-1]:
-            structure = structure.setdefault(part, {})
-        structure[parts[-1]] = link
+            if part not in current_level or not isinstance(current_level[part], dict):
+                # If the part is not in the current level, or it's not a dictionary,
+                # it gets reset to a dictionary. This might overwrite a file entry with a directory name.
+                current_level[part] = {}
+            current_level = current_level[part]
+        # Before assigning the link, ensure there's no conflict or decide how to handle a potential conflict
+        if parts[-1] in current_level:
+            # Potential place to handle naming conflicts
+            print(f"Warning: Naming conflict for '{parts[-1]}' at this path. Overwriting with latest.")
+        current_level[parts[-1]] = link
 
     def generate_markdown(structure, depth=0):
         markdown = ""
         indent = "  " * depth
-        for key, value in structure.items():
+        for key, value in sorted(structure.items()):
             if isinstance(value, dict):
                 markdown += f"\n{indent}* **{key}**"
                 markdown += generate_markdown(value, depth + 1)
@@ -44,10 +53,11 @@ def build_markdown_structure(files, github_url):  # Now accepts github_url
         if path.lower().startswith('archive/'):
             file_name = path.split('/')[-1]
             encoded_path = urllib.parse.quote(path)
-            file_link = f"{github_url}/{encoded_path}"  # Uses github_url correctly
+            file_link = f"{github_url}/{encoded_path}"
             insert_path(structure, path[len('archive/'):], file_link)
 
     return generate_markdown(structure)
+
 
 async def create_discord_structure(file_tree, guild, github_url):  # Accepts github_url
     archive_category = discord.utils.get(guild.categories, name="archive")
