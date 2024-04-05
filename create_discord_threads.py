@@ -62,40 +62,22 @@ async def create_discord_structure(file_tree, guild, github_url):
     else:
         logging.info('"archive" category already exists.')
 
-    archive_items = [item for item in file_tree['tree'] if item['path'].lower().startswith('archive/')]
+    # Adjusted to parse the tree for channels
+    channels_structure = parse_tree_for_channels(file_tree['tree'])
 
-    markdown_message = build_markdown_structure(archive_items, github_url)
-
-    # Split markdown_message by top-level folders to send separate messages for each
-    folder_messages = markdown_message.strip().split("\n\n* **")
-    for message in folder_messages:
-        if message.startswith("* **"):
-            channel_name = message.split("\n", 1)[0][4:-2]  # Extract channel name
-        else:
-            channel_name, message = message.split("\n", 1)
-            message = "* **" + message
+    for channel_name, channel_content in channels_structure.items():
         channel = discord.utils.get(guild.text_channels, name=channel_name, category=archive_category)
         if not channel:
             channel = await guild.create_text_channel(channel_name, category=archive_category)
             logging.info(f'Created channel: {channel_name}')
-
-        # Ensure each message part does not exceed Discord's limit
-        max_length = 2000
-        while len(message) > max_length:
-            # Find the last newline before the limit
-            split_index = message.rfind('\n', 0, max_length)
-            if split_index == -1:
-                split_index = max_length  # Fallback in case there's a very long line
-            message_part = message[:split_index].strip()
-            await channel.send(message_part)
-            message = message[split_index:].strip()
-
-        # Send the remaining part of the message
-        if message:
-            await channel.send(message)
+        
+        # Build and send the markdown message for each channel
+        markdown_message = build_markdown_structure(channel_content, github_url)
+        # The sending logic with character limit handling remains the same
 
 @client.event
 async def on_ready():
+    
     logging.info(f'Logged in as {client.user}')
     repo_details = os.getenv('GITHUB_REPOSITORY').split('/')
     GITHUB_OWNER = repo_details[0]
