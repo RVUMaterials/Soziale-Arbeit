@@ -49,19 +49,15 @@ def build_markdown_structure(channel_content, github_url):
     for file_path in channel_content['files']:
         file_name = file_path.split('/')[-1]
         file_link = get_github_file_link(file_path, github_url)
-        # Wrap link in < > to prevent embed
-        markdown += f"* [{file_name}](<{file_link}>)\n"
-
+        markdown += f"* [{file_name}]({file_link})\n"
     for subdir, files in channel_content['subdirs'].items():
         subdir_display_name = " / ".join(subdir.split('/'))
         markdown += f"  * **{subdir_display_name}**\n"
         for file_name in files:
             full_file_path = f"{subdir}/{file_name}"
             file_link = get_github_file_link(full_file_path, github_url)
-            # Wrap link in < > to prevent embed
-            markdown += f"    * [{file_name}](<{file_link}>)\n"
+            markdown += f"    * [{file_name}]({file_link})\n"
     return markdown
-
 
 async def send_large_message(channel, message):
     max_length = 2000
