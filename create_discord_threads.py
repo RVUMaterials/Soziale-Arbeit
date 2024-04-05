@@ -28,9 +28,9 @@ def parse_tree_for_channels(file_tree):
             top_level_dir = path_parts[1]
             if top_level_dir not in channels_structure:
                 channels_structure[top_level_dir] = {'files': [], 'subdirs': {}}
-            if len(path_parts) == 3 and item['type'] == 'blob':
+            if len(path_parts) == 3 and item['type'] == 'blob':  # Directly under a top-level directory
                 channels_structure[top_level_dir]['files'].append(item['path'])
-            elif len(path_parts) > 3:
+            elif len(path_parts) > 3:  # Nested in subdirectories
                 sub_dir = '/'.join(path_parts[2:-1])
                 if sub_dir not in channels_structure[top_level_dir]['subdirs']:
                     channels_structure[top_level_dir]['subdirs'][sub_dir] = []
@@ -39,22 +39,17 @@ def parse_tree_for_channels(file_tree):
     return channels_structure
 
 def get_github_file_link(file_path, github_url):
-    # Ensure the path starts with "Archive/" and includes the complete directory structure
     adjusted_path = "Archive/" + "/".join(file_path.split('/')[1:])
     encoded_path = urllib.parse.quote(adjusted_path)
     full_link = f"{github_url}/{encoded_path}"
     return full_link
 
-
 def build_markdown_structure(channel_content, github_url):
     markdown = ""
-    # Files directly under the top-level directory
     for file_path in channel_content['files']:
         file_name = file_path.split('/')[-1]
         file_link = get_github_file_link(file_path, github_url)
         markdown += f"* [{file_name}]({file_link})\n"
-
-    # Subdirectories and their files
     for subdir, files in channel_content['subdirs'].items():
         subdir_display_name = " / ".join(subdir.split('/'))
         markdown += f"  * **{subdir_display_name}**\n"
@@ -62,19 +57,16 @@ def build_markdown_structure(channel_content, github_url):
             full_file_path = f"{subdir}/{file_name}"
             file_link = get_github_file_link(full_file_path, github_url)
             markdown += f"    * [{file_name}]({file_link})\n"
-    
     return markdown
 
 async def send_large_message(channel, message):
-    max_length = 2000  # Discord's max message length
+    max_length = 2000
     while message:
-        # Find a safe break point, prioritizing line breaks
         split_point = message.rfind('\n', 0, max_length) + 1
-        if split_point == 0:  # No line break found, default to max length
+        if split_point == 0:
             split_point = max_length
         part, message = message[:split_point], message[split_point:]
         await channel.send(part)
-
 
 async def create_discord_structure(file_tree, guild, github_url):
     archive_category = discord.utils.get(guild.categories, name="archive")
@@ -83,19 +75,18 @@ async def create_discord_structure(file_tree, guild, github_url):
         logging.info('Created "archive" category.')
     else:
         logging.info('"archive" category already exists.')
+
     channels_structure = parse_tree_for_channels([item for item in file_tree['tree'] if item['path'].lower().startswith('archive/')])
     for channel_name, content in channels_structure.items():
-        # Channel lookup or creation...
+        channel = discord.utils.get(guild.text_channels, name=channel_name, category=archive_category)
+        if not channel:
+            channel = await guild.create_text_channel(channel_name, category=archive_category)
+            logging.info(f'Created channel: {channel_name}')
+        else:
+            logging.info(f'Channel "{channel_name}" already exists.')
         markdown_message = build_markdown_structure(content, github_url)
         logging.info(f'Sending markdown message for "{channel_name}"...')
         await send_large_message(channel, markdown_message)
-        # Send markdown message in parts if it's too long
-        if len(markdown_message) > 2000:
-            parts = [markdown_message[i:i+2000] for i in range(0, len(markdown_message), 2000)]
-            for part in parts:
-                await channel.send(part)
-        else:
-            await channel.send(markdown_message)
 
 @client.event
 async def on_ready():
