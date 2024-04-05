@@ -22,32 +22,40 @@ def get_github_file_tree(owner, repo, branch):
 
 def parse_tree_for_channels(file_tree):
     channels_structure = {}
-    # First, identify all directories within 'archive/'
+    
+    # First, let's identify top-level directories (channels) and initialize their structure
     for item in file_tree:
         if item['path'].startswith('archive/') and item['type'] == 'tree':
-            dir_path_parts = item['path'].split('/')
-            if len(dir_path_parts) == 2:  # Directly under 'archive/'
-                dir_name = dir_path_parts[1]
-                if dir_name not in channels_structure:
-                    channels_structure[dir_name] = {'files': [], 'subdirs': {}}
+            path_parts = item['path'].split('/')
+            # Check if it's directly under 'archive/' and not a deeper subdirectory
+            if len(path_parts) == 3:  # It's ['archive', 'TopLevelDir', '']
+                top_level_dir = path_parts[1]
+                if top_level_dir not in channels_structure:
+                    channels_structure[top_level_dir] = {'files': [], 'subdirs': {}}
     
-    # Next, process all files, assigning them to their respective directories
+    # Next, categorize files under their respective top-level directories
     for item in file_tree:
         if item['path'].startswith('archive/') and item['type'] == 'blob':
-            file_path_parts = item['path'].split('/')
-            if len(file_path_parts) > 2:  # Inside a subdirectory under 'archive/'
-                top_level_dir = file_path_parts[1]
-                sub_dir_path = '/'.join(file_path_parts[2:-1])  # Path without the filename and 'archive/'
-                file_name = file_path_parts[-1]
+            path_parts = item['path'].split('/')
+            # Ignore files directly under 'archive/' and focus on those within subdirectories
+            if len(path_parts) > 3:  # It's at least ['archive', 'TopLevelDir', 'SubDir', 'FileName.ext']
+                top_level_dir = path_parts[1]
+                sub_dir_path = '/'.join(path_parts[2:-1])  # Everything between the top-level directory and the file name
+                file_name = path_parts[-1]
+                
+                # Ensure the file belongs to a recognized top-level directory
                 if top_level_dir in channels_structure:
-                    if sub_dir_path not in channels_structure[top_level_dir]['subdirs']:
-                        channels_structure[top_level_dir]['subdirs'][sub_dir_path] = []
-                    channels_structure[top_level_dir]['subdirs'][sub_dir_path].append(file_name)
+                    # Assign files directly under top-level directories
+                    if len(path_parts) == 4:  # Directly under a top-level directory
+                        channels_structure[top_level_dir]['files'].append(item['path'])
+                    else:  # Nested within subdirectories
+                        if sub_dir_path not in channels_structure[top_level_dir]['subdirs']:
+                            channels_structure[top_level_dir]['subdirs'][sub_dir_path] = []
+                        channels_structure[top_level_dir]['subdirs'][sub_dir_path].append(file_name)
                 else:
-                    # If the file does not belong to a recognized top-level directory (unlikely due to the first loop, but just in case)
-                    logging.warning(f"File {item['path']} does not belong to a recognized top-level directory.")
+                    logging.warning(f"File {item['path']} is not recognized under any top-level directory.")
     
-    logging.info(f"Channels structure parsed with {len(channels_structure.keys())} top-level directories.")
+    logging.info(f"Channels structure parsed with {len(channels_structure)} top-level directories.")
     return channels_structure
 
 def build_markdown_structure(files, github_url):
