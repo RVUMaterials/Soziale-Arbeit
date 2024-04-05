@@ -28,24 +28,22 @@ def parse_tree_for_channels(file_tree):
             top_level_dir = path_parts[1]
             if top_level_dir not in channels_structure:
                 channels_structure[top_level_dir] = {'files': [], 'subdirs': {}}
-            if len(path_parts) == 3 and item['type'] == 'blob':  # Directly under a top-level directory
+            if len(path_parts) == 3 and item['type'] == 'blob':
                 channels_structure[top_level_dir]['files'].append(item['path'])
-            elif len(path_parts) > 3:  # Nested in subdirectories
-                sub_dir = '/'.join(path_parts[2:-1])
-                if sub_dir not in channels_structure[top_level_dir]['subdirs']:
-                    channels_structure[top_level_dir]['subdirs'][sub_dir] = []
-                channels_structure[top_level_dir]['subdirs'][sub_dir].append(path_parts[-1])
+            elif len(path_parts) > 3:
+                sub_dir_path = '/'.join(path_parts[1:-1])  # Include the top-level dir and any subdirs
+                if sub_dir_path not in channels_structure[top_level_dir]['subdirs']:
+                    channels_structure[top_level_dir]['subdirs'][sub_dir_path] = []
+                channels_structure[top_level_dir]['subdirs'][sub_dir_path].append(path_parts[-1])
     logging.info(f"Channels structure parsed with {len(channels_structure)} top-level directories.")
     return channels_structure
 
 def get_github_file_link(file_path, github_url):
-    # The initial 'archive/' part is replaced with 'Archive/' to match the case of the GitHub repository structure
-    # Then, the entire path after 'archive/' is included, ensuring subdirectory names are preserved
+    # Correctly assemble the path including the 'Archive/' prefix and any subdirectories
     adjusted_path = file_path.replace('archive/', 'Archive/', 1)
     encoded_path = urllib.parse.quote(adjusted_path)
     full_link = f"{github_url}/{encoded_path}"
     return full_link
-
 
 def build_markdown_structure(channel_content, github_url):
     markdown = ""
@@ -53,11 +51,12 @@ def build_markdown_structure(channel_content, github_url):
         file_name = file_path.split('/')[-1]
         file_link = get_github_file_link(file_path, github_url)
         markdown += f"* [{file_name}]({file_link})\n"
-    for subdir, files in channel_content['subdirs'].items():
-        subdir_display_name = " / ".join(subdir.split('/'))
+    for subdir_path, files in channel_content['subdirs'].items():
+        # Extract just the last part of the subdir path for display
+        subdir_display_name = subdir_path.split('/')[-1].replace('_', ' ')
         markdown += f"  * **{subdir_display_name}**\n"
         for file_name in files:
-            full_file_path = f"{subdir}/{file_name}"
+            full_file_path = f"{subdir_path}/{file_name}"  # subdir_path already includes the top-level dir
             file_link = get_github_file_link(full_file_path, github_url)
             markdown += f"    * [{file_name}]({file_link})\n"
     return markdown
